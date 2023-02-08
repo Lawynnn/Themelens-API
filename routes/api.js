@@ -7,7 +7,9 @@ const jwt = require("jsonwebtoken");
 const { User } = require("../database/schema/userSchema");
 const { Friend } = require("../database/schema/friendSchema");
 
-
+const Extends = require("./extends");
+Route.use("/friends", Extends.friendsRoute);
+Route.use("/posts", Extends.postsRoute);
 
 const emailTransport = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
