@@ -5,7 +5,7 @@ module.exports.User = mongoose.model(
     new mongoose.Schema({
         username: {
             type: String,
-            maxlength: 64,
+            maxlength: 40,
             minlength: 3,
             required: true
         },
@@ -21,6 +21,18 @@ module.exports.User = mongoose.model(
             required: true,
         },
         email: {
+            type: String,
+            required: true,
+        },
+        bio: {
+            type: String,
+            required: false,
+            maxlength: 128,
+        },
+        avatar: {
+            data: Buffer,
+        },
+        token: {
             type: String,
             required: true,
         },
