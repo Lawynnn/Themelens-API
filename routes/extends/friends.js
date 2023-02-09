@@ -20,14 +20,13 @@ Route.get("/", Auth, async (req, res, next) => {
 })
 
 Route.get("/pendings", Auth, async (req, res, next) => {
-    let userFriend = await Model.Friend.findOne({ _id: req.user._id });
-    if (!userFriend)
-        return res.status(400).json({
-            success: false,
-            type: "no_friends_db"
-        })
+    let pendingsUsers = await Model.Friend.find({"pendings": { $in: [req.user._id] } }, {__v: 0});
 
-    let data = userFriend.pendings.map(u => u._id);
+    let data = [];
+    for(let pendingUser of pendingsUsers) {
+        data.push(pendingUser._id);
+    }
+    
     res.status(200).json({
         success: true,
         pendings: data,
@@ -122,14 +121,14 @@ Route.post("/send/:id", Auth, async (req, res, next) => {
             type: "already_friends"
         });
 
-    if (userFriend.pendings.includes(id))
+    if (userFriend.pendings.includes(id) || thisFriend.pendings.includes(req.user._id))
         return res.status(400).json({
             success: false,
             type: "already_pending"
         });
 
     userFriend.pendings.push(id);
-    await userFriend.save();
+    await Promise.all([userFriend.save(), thisFriend.save()]);
     return res.json({
         success: true,
         type: "friend_request_sent"
@@ -164,30 +163,71 @@ Route.post("/accept/:id", Auth, async (req, res, next) => {
             type: "already_friends"
         });
 
-    if (!userFriend.pendings.includes(id))
-        return res.status(400).json({
-            success: false,
-            type: "not_pending"
-        });
-
     if (!thisFriend.pendings.includes(req.user._id))
         return res.status(400).json({
             success: false,
             type: "not_pending"
         });
 
-    userFriend.pendings.pull(id);
     userFriend.friends.push(id);
     thisFriend.pendings.pull(req.user._id);
     thisFriend.friends.push(req.user._id);
 
-    await userFriend.save();
-    await thisFriend.save();
+    await Promise.all([userFriend.save(), thisFriend.save()]);
 
     return res.status(200).json({
         success: true,
         type: "friends"
     });
 });
+
+Route.post("/remove/:id", Auth, async (req, res, next) => {
+    let { id } = req.params;
+    if (!id)
+        return res.status(400).json({
+            success: false,
+            type: "missing_url_param"
+        });
+
+    let thisFriend = await Model.Friend.findOne({ _id: id }).catch(e => null);
+    if (!thisFriend)
+        return res.status(400).json({
+            success: false,
+            type: "user_not_found"
+        });
+
+    let userFriend = await Model.Friend.findOne({ _id: req.user._id });
+    if (!userFriend)
+        return res.status(400).json({
+            success: false,
+            type: "user_not_found"
+        });
+    
+    let userIndex = userFriend.friends.findIndex(u => u._id.toString() === id);
+    if (userIndex < 0)
+        return res.status(400).json({
+            success: false,
+            type: "not_friends"
+        });
+
+    let thisUserIndex = thisFriend.friends.findIndex(u => u._id.toString() === req.user._id.toString());
+    if (thisUserIndex < 0)
+        return res.status(400).json({
+            success: false,
+            type: "not_friends",
+            self: false,
+        });
+    
+    thisFriend.friends.splice(thisUserIndex, 1);
+    userFriend.friends.splice(userIndex, 1);
+    await Promise.all([thisFriend.save(), userFriend.save()]);
+    res.status(200).json({
+        success: true,
+        friends: {
+            self: userFriend.friends,
+            user: thisFriend.friends
+        }
+    })
+})
 
 module.exports = Route;

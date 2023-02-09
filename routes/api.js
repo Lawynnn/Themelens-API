@@ -10,6 +10,7 @@ const { Friend } = require("../database/schema/friendSchema");
 const Extends = require("./extends");
 Route.use("/friends", Extends.friendsRoute);
 Route.use("/posts", Extends.postsRoute);
+Route.use("/user", Extends.userRoute);
 
 const emailTransport = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
@@ -25,7 +26,7 @@ Route.get("/", (req, res) => {
     res.json({ message: "Welcome to the api" });
 })
 
-Route.post("/nickname", async (req, res, next) => {
+Route.post("/nickname-validate", async (req, res, next) => {
     let { nickname } = req.body;
     nickname = Utils.parseNickname(nickname);
 
@@ -39,7 +40,6 @@ Route.post("/nickname", async (req, res, next) => {
         return res.status(200).json({
             success: false,
             type: "nickname_taken",
-            message: "Nickname already taken"
         })
     }
     return res.status(200).json({
@@ -68,7 +68,7 @@ Route.post("/signin", async (req, res, next) => {
             })
 
         if (tokenParams[0] === "Bearer") {
-            let user = await User.findOne({ token: tokenParams[1] }, {avatar: 0, __v: 0});
+            let user = await User.findOne({ token: tokenParams[1] }, { avatar: 0, __v: 0 });
             if (user) {
                 return res.status(200).json({
                     success: true,
@@ -192,20 +192,25 @@ Route.post("/signup", async (req, res, next) => {
     }
     else if (!code) {
         req.session.code = Math.floor(10000 + Math.random() * 90000).toString();
-        await emailTransport.sendMail({
-            from: "noreply@themelens.fun",
-            to: email,
-            subject: "Themelens account verification code",
-            html: `
-            <body style="width: 350px; height: 400px; text-align: center;">
-            <div style="background: black; border-radius: 15px; padding: 15px;">
-            <h2 style="color: #fff; margin-bottom: 10px; margin-top: 0;">Themelens</h2>
-            <span style="text-align: center; color: #777; font-size: 17px;">Hi, <strong style="color: #fff">${username}</strong>, here is your <strong style="color: #fff">themelens</strong> verification code</span>
-            <h1 style="margin-top: 95px; text-align: center; color: white; letter-spacing: 15px; font-size: 55px;">${req.session.code}</h1>
-            </div>
-            </body>`
-        }).catch(e => res.status(400).json({ success: false, type: "invalid_email" }));
-        return res.json({ success: true, await_verification: true, code: req.session.code });
+        try {
+            await emailTransport.sendMail({
+                from: "noreply@themelens.fun",
+                to: email,
+                subject: "Themelens account verification code",
+                html: `
+                <body style="width: 350px; height: 400px; text-align: center;">
+                <div style="background: black; border-radius: 15px; padding: 15px;">
+                <h2 style="color: #fff; margin-bottom: 10px; margin-top: 0;">Themelens</h2>
+                <span style="text-align: center; color: #777; font-size: 17px;">Hi, <strong style="color: #fff">${username}</strong>, here is your <strong style="color: #fff">themelens</strong> verification code</span>
+                <h1 style="margin-top: 95px; text-align: center; color: white; letter-spacing: 15px; font-size: 55px;">${req.session.code}</h1>
+                </div>
+                </body>`
+            });
+            return res.json({ success: true, await_verification: true, code: req.session.code });
+        }
+        catch (e) {
+            return res.status(400).json({ success: false, type: "invalid_email" })
+        }
     }
     else if (code === req.session?.code) {
         req.session.code = null;

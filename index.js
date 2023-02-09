@@ -3,10 +3,12 @@ const express = require("express");
 const session = require("express-session");
 const store = require("connect-mongo");
 const mongoose = require("./database");
+const multer = require("multer");
 
 const app = express()
-    .use(express.urlencoded({extended: true}))
     .use(express.json())
+    .use(express.urlencoded({extended: true}))
+    .use(multer().array())
     .use(session({
         secret: process.env.SESSION_TOKEN,
         saveUninitialized: true,
