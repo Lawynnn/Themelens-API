@@ -31,6 +31,7 @@ module.exports.User = mongoose.model(
         },
         avatar: {
             data: Buffer,
+            mimetype: String,
         },
         token: {
             type: String,
